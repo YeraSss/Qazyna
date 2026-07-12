@@ -37,8 +37,9 @@ WidgetKit.
 - **Capture** — on-device **natural-language** entry ("coffee 1500 kaspi"), **receipt OCR**
   (Vision), and **CSV / statement import** with column mapping.
 - **Backup** — export transactions as CSV, full backup as JSON, and restore from JSON.
-- **Extras** — Face ID / Touch ID / PIN lock, home & lock-screen **widgets**, Siri / Spotlight /
-  Action-Button quick logging, and a shareable **monthly PDF report**.
+- **Extras** — **hide-balances** privacy (amounts redacted until you tap the eye to reveal;
+  auto re-hide on background), Face ID / Touch ID / PIN lock, home & lock-screen **widgets**,
+  Siri / Spotlight / Action-Button quick logging, and a shareable **monthly PDF report**.
 - Dark mode, haptics, KZT formatting (`1 234 567 ₸`).
 
 ---

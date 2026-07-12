@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var fx: FXRateService
     @EnvironmentObject private var appLock: AppLock
+    @EnvironmentObject private var privacy: PrivacyManager
     @State private var notificationsAuthorized = false
     @State private var showSetPIN = false
     @State private var showWalkthrough = false
@@ -73,6 +74,16 @@ struct SettingsView: View {
                     Text("Data")
                 } footer: {
                     Text("Export a spreadsheet-friendly CSV or a full JSON backup. Restore replaces all current data with a backup file.")
+                }
+
+                Section {
+                    Toggle(isOn: $privacy.enabled) {
+                        Label("Hide balances", systemImage: "eye.slash")
+                    }
+                } header: {
+                    Text("Privacy")
+                } footer: {
+                    Text("Balances show as ▚▚▚ until you tap the eye (or the net-worth figure). They re-hide when you leave the app.")
                 }
 
                 Section {

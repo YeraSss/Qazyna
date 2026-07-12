@@ -24,6 +24,33 @@ enum TapLogger {
         }
     }
 
+    struct Preview { let accountName: String; let categoryID: String; let amount: Decimal; let currency: String; let mappingMatched: Bool }
+
+    /// Resolve a hypothetical tap WITHOUT writing anything — used by the in-app "test capture"
+    /// so the user can confirm the app side + card mapping work, isolating any failure to the
+    /// device-side Shortcuts automation.
+    static func preview(rawAmount: String, merchant: String?, card: String?, currency: String?,
+                        in context: ModelContext) -> Preview? {
+        let accounts = (try? context.fetch(FetchDescriptor<SubAccount>(sortBy: [SortDescriptor(\.sortOrder)]))) ?? []
+        guard !accounts.isEmpty else { return nil }
+        var account = accounts.first { $0.type == .card } ?? accounts[0]
+        var mappingMatched = false
+        var resolvedCurrency = currency?.uppercased()
+        if let card, !card.isEmpty {
+            let key = CardMapping.normalize(card)
+            var d = FetchDescriptor<CardMapping>(predicate: #Predicate { $0.cardKey == key }); d.fetchLimit = 1
+            if let m = try? context.fetch(d).first, let acct = accounts.first(where: { $0.id == m.accountID }) {
+                account = acct; mappingMatched = true
+                if resolvedCurrency == nil { resolvedCurrency = m.defaultCurrencyCode }
+            }
+        }
+        let cur = (resolvedCurrency == account.currencyCode ? resolvedCurrency : nil) ?? account.currencyCode
+        guard let amount = AmountParser.parse(rawAmount, currencyCode: cur) else { return nil }
+        let categoryID = merchant.flatMap { MerchantLearning.category(for: $0, in: context) } ?? "other"
+        return Preview(accountName: "\(account.bank?.name ?? "") \(account.name)", categoryID: categoryID,
+                       amount: amount, currency: cur, mappingMatched: mappingMatched)
+    }
+
     @discardableResult
     static func log(rawAmount: String, merchant: String?, card: String?, currency: String?,
                     date: Date = .now, in context: ModelContext) throws -> Result {

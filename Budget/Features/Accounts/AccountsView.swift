@@ -6,6 +6,7 @@ import SwiftData
 struct AccountsView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var fx: FXRateService
+    @EnvironmentObject private var privacy: PrivacyManager
 
     @Query(sort: [SortDescriptor(\Bank.sortOrder)]) private var banks: [Bank]
     @Query(filter: #Predicate<SubAccount> { !$0.isArchived }) private var accounts: [SubAccount]
@@ -42,6 +43,11 @@ struct AccountsView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Accounts")
             .toolbar {
+                if privacy.enabled {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { privacy.toggleReveal() } label: { Image(systemName: privacy.eyeSymbol) }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { Haptics.tap(); showTransfer = true } label: {
                         Image(systemName: "arrow.left.arrow.right")
@@ -65,13 +71,18 @@ struct AccountsView: View {
     private var netWorthHeader: some View {
         let total = NetWorthCalculator.total(accounts, rateToKZT: rate)
         return VStack(spacing: 6) {
-            Text("Net Worth")
-                .font(.subheadline).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text("Net Worth").font(.subheadline).foregroundStyle(.secondary)
+                if privacy.enabled {
+                    Image(systemName: privacy.eyeSymbol).font(.caption2).foregroundStyle(.secondary)
+                }
+            }
             Text(CurrencyFormatter.kzt(total))
                 .font(.system(size: 40, weight: .bold, design: .rounded))
                 .minimumScaleFactor(0.5).lineLimit(1)
                 .contentTransition(.numericText())
                 .animation(.snappy, value: total)
+                .hideBalance(privacy.isHidden)
             if fx.isStale {
                 Label(fx.ratesAsOfText, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption2).foregroundStyle(.orange)
@@ -84,6 +95,8 @@ struct AccountsView: View {
                 .fill(Color(.secondarySystemGroupedBackground))
         )
         .padding(.top, 8)
+        .contentShape(Rectangle())
+        .onTapGesture { privacy.toggleReveal() }
     }
 
     // MARK: Bank card
@@ -112,6 +125,7 @@ struct AccountsView: View {
                     Spacer()
                     Text(CurrencyFormatter.kzt(bankTotal))
                         .font(.headline.weight(.semibold))
+                        .hideBalance(privacy.isHidden)
                     Image(systemName: "chevron.right")
                         .font(.caption.bold()).foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isOpen ? 90 : 0))
@@ -168,9 +182,11 @@ struct AccountsView: View {
                 Text(CurrencyFormatter.string(sub.cachedBalance, currencyCode: sub.currencyCode))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(sub.type.isLiability ? .red : .primary)
+                    .hideBalance(privacy.isHidden)
                 if sub.currencyCode != Money.baseCurrency {
                     Text("≈ \(CurrencyFormatter.kzt(Money.roundedKZT(sub.cachedBalance * rate(sub.currencyCode))))")
                         .font(.caption2).foregroundStyle(.secondary)
+                        .hideBalance(privacy.isHidden)
                 }
             }
         }

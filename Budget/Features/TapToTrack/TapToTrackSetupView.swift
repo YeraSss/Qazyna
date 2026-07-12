@@ -9,6 +9,7 @@ struct TapToTrackSetupView: View {
     @Query(sort: [SortDescriptor(\CardMapping.displayCardName)]) private var mappings: [CardMapping]
     @Query(filter: #Predicate<SubAccount> { !$0.isArchived }) private var accounts: [SubAccount]
     @State private var addingCard = false
+    @State private var testResult: String?
 
     var body: some View {
         List {
@@ -55,17 +56,47 @@ struct TapToTrackSetupView: View {
             }
 
             Section {
-                Label {
-                    Text("Captures **in-store iPhone Apple Pay taps only** — not Apple Watch, online, or QR/Kaspi/Alaqan payments. Keep using manual entry for those. Currency isn't passed by the automation, so foreign taps default to the card's currency and are flagged for review.")
-                        .font(.caption)
-                } icon: { Image(systemName: "info.circle").foregroundStyle(.orange) }
+                Button { runTest() } label: { Label("Run a test capture", systemImage: "checkmark.circle") }
+                    .disabled(accounts.isEmpty)
+                if let testResult { Text(testResult).font(.caption).foregroundStyle(.secondary) }
             } header: {
-                Text("Good to know")
+                Text("Test the connection")
+            } footer: {
+                Text("Simulates a 1 000 ₸ tap using your first mapped card — nothing is saved. If it shows a result, the app side works and any problem is in the Shortcuts automation itself.")
+            }
+
+            Section {
+                tip("Double-clicking the side button only *opens* Apple Pay — the automation fires after the payment actually completes at an in-store NFC terminal, not from the button press.")
+                tip("It runs only for **in-store contactless taps on this iPhone**. Online, in-app, Apple Watch, and QR / Kaspi / Alaqan payments never trigger it.")
+                tip("In Shortcuts, make sure the automation's card filter matches the card you tapped (or pick **Any Card**), Transaction Type is **Payment**, **Run Immediately** is on, and **Notify When Run** is off.")
+                tip("On iOS 26 the trigger lives under **Wallet**, not Transaction.")
+                tip("Some Kazakhstani cards don't expose transactions to Shortcuts at all. Test with your specific card; use manual entry or receipt scan as a fallback.")
+            } header: {
+                Text("If it doesn't log")
             }
         }
         .navigationTitle("Tap to Track")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $addingCard) { CardMappingEditor(accounts: accounts) }
+    }
+
+    private func tip(_ markdown: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "wrench.and.screwdriver").font(.caption).foregroundStyle(.orange).frame(width: 22)
+            Text(.init(markdown)).font(.caption)
+        }
+    }
+
+    private func runTest() {
+        let card = mappings.first?.displayCardName
+        if let p = TapLogger.preview(rawAmount: "1000", merchant: "Test Merchant", card: card, currency: nil, in: context) {
+            let route = p.mappingMatched ? "" : " (no card mapping matched — using your first account)"
+            testResult = "✓ Would log \(CurrencyFormatter.string(p.amount, currencyCode: p.currency)) → \(p.accountName) · \(p.categoryID)\(route)"
+            Haptics.success()
+        } else {
+            testResult = "Add at least one account first (Accounts tab)."
+            Haptics.error()
+        }
     }
 
     private func step(_ n: Int, _ markdown: String) -> some View {

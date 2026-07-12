@@ -70,5 +70,8 @@ struct PlaceholderTab: View {
 #Preview {
     RootTabView()
         .environmentObject(FXRateService())
+        .environmentObject(QuickAddRouter.shared)
+        .environmentObject(AppLock())
+        .environmentObject(PrivacyManager())
         .modelContainer(ModelContainerFactory.makeContainer(inMemory: true))
 }

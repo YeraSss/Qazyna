@@ -8,6 +8,7 @@ struct BudgetApp: App {
     @StateObject private var fx = FXRateService()
     @StateObject private var router = QuickAddRouter.shared
     @StateObject private var appLock = AppLock()
+    @StateObject private var privacy = PrivacyManager()
     @Environment(\.scenePhase) private var scenePhase
 
     @AppStorage("hasOnboarded") private var hasOnboarded = false
@@ -17,6 +18,9 @@ struct BudgetApp: App {
         container = ModelContainerFactory.makeContainer()
         // Seed only the default category taxonomy (idempotent). No sample accounts/transactions.
         SeedData.seedIfNeeded(container.mainContext)
+        #if DEBUG
+        DemoSeed.seedIfRequested(container.mainContext)
+        #endif
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
     }
 
@@ -27,6 +31,7 @@ struct BudgetApp: App {
                     .environmentObject(fx)
                     .environmentObject(router)
                     .environmentObject(appLock)
+                    .environmentObject(privacy)
             }
             .task {
                 #if DEBUG
@@ -50,6 +55,7 @@ struct BudgetApp: App {
                 router.consumePendingIfNeeded()
             case .background:
                 appLock.lockIfEnabled()
+                privacy.rehide()
                 WidgetSnapshotWriter.update(in: container.mainContext, rateToKZT: { fx.rateToKZT($0) })
             default: break
             }

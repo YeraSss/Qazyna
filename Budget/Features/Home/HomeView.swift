@@ -5,6 +5,7 @@ import SwiftData
 struct HomeView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var fx: FXRateService
+    @EnvironmentObject private var privacy: PrivacyManager
 
     @Query private var monthlyRollups: [MonthlyRollup]
     @Query(filter: #Predicate<SubAccount> { !$0.isArchived }) private var accounts: [SubAccount]
@@ -36,6 +37,11 @@ struct HomeView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle(Date().formatted(.dateTime.month(.wide).year()))
             .toolbar {
+                if privacy.enabled {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { privacy.toggleReveal() } label: { Image(systemName: privacy.eyeSymbol) }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button { showQuickAdd = true } label: { Label("Quick add", systemImage: "plus") }
@@ -60,6 +66,7 @@ struct HomeView: View {
                 Text(CurrencyFormatter.kzt(expense))
                     .font(.system(size: 36, weight: .bold, design: .rounded))
                     .contentTransition(.numericText()).animation(.snappy, value: expense)
+                    .hideBalance(privacy.isHidden)
             }
             HStack {
                 summaryPill(title: "Income", value: income, color: .green, icon: "arrow.down.left")
@@ -77,6 +84,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.caption2).foregroundStyle(.secondary)
                 Text(CurrencyFormatter.kzt(value)).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                    .hideBalance(privacy.isHidden)
             }
             Spacer()
         }
@@ -91,6 +99,7 @@ struct HomeView: View {
             Text("Net worth")
             Spacer()
             Text(CurrencyFormatter.kzt(total)).fontWeight(.semibold)
+                .hideBalance(privacy.isHidden)
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
