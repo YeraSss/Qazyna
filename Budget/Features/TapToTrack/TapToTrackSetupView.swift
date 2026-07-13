@@ -22,14 +22,17 @@ struct TapToTrackSetupView: View {
                 }
             }
 
-            Section("Set up the automation (once per device)") {
-                step(1, "Open the **Shortcuts** app → **Automation** tab → **＋ New Automation**.")
-                step(2, "Choose **Transaction** (called **Wallet** on iOS 26) → **When I use a card**.")
-                step(3, "Pick the card(s) you want tracked, and set **Transaction Type: Payment**.")
-                step(4, "Turn on **Run Immediately** and turn **off** *Notify When Run* for silent logging.")
-                step(5, "Add action **Log Apple Pay Expense** (from Qazyna).")
-                step(6, "Map **Shortcut Input → Amount** to *Amount*, and **Merchant** to *Merchant*.")
-                step(7, "Save. Now every tap-to-pay logs to Qazyna automatically.")
+            Section {
+                step(1, "Open **Shortcuts** → **Automation** tab → **＋** → **Create Personal Automation**.")
+                step(2, "Choose **Transaction** (shown as **Wallet** on iOS 26).")
+                step(3, "Set **When I use** → the card you pay with (or **Any Card**), then tap **Next**.")
+                step(4, "**Add Action**, search **Qazyna**, and choose **Log Apple Pay Expense**.")
+                step(5, "In that action, tap **Amount** and insert the transaction's **Amount** variable; tap **Merchant** and insert **Merchant**. Tap **Next**.")
+                step(6, "Choose **Run Immediately** (not *Ask Before Running*), then **Done**.")
+            } header: {
+                Text("Set up the automation (once per device)")
+            } footer: {
+                Text("The two things people miss: (1) **Run Immediately** must be on — if it's set to *Ask Before Running*, iOS only sends a prompt and nothing logs on its own; (2) the **Amount** (and Merchant) variable must actually be inserted into the action's fields.")
             }
 
             Section {
@@ -72,8 +75,9 @@ struct TapToTrackSetupView: View {
             }
 
             Section {
-                tip("Double-clicking the side button only *opens* Apple Pay — the automation fires after the payment actually completes at an in-store NFC terminal, not from the button press.")
-                tip("It runs only for **in-store contactless taps on this iPhone**. Online, in-app, Apple Watch, and QR / Kaspi / Alaqan payments never trigger it.")
+                tip("Your flow — double-click, authenticate, hold your card to the terminal — is exactly what this tracks. It fires when that in-store payment **completes**, so test it on a real purchase (opening Wallet alone won't trigger it).")
+                tip("If it still doesn't fire, it's almost always **Run Immediately** being off, or the card in the trigger not matching the card you paid with — recheck steps 3 and 6 above.")
+                tip("It works only for **in-store contactless taps on this iPhone** — not Apple Watch, online/in-app, or QR / Kaspi / Alaqan payments.")
                 tip("In Shortcuts, make sure the automation's card filter matches the card you tapped (or pick **Any Card**), Transaction Type is **Payment**, **Run Immediately** is on, and **Notify When Run** is off.")
                 tip("On iOS 26 the trigger lives under **Wallet**, not Transaction.")
                 tip("Some Kazakhstani cards don't expose transactions to Shortcuts at all. Test with your specific card; use manual entry or receipt scan as a fallback.")
