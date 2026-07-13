@@ -32,11 +32,8 @@ final class PrivacyManager: ObservableObject {
 
     /// Re-hide (called when the app backgrounds).
     func rehide() { revealed = false }
-}
 
-extension View {
-    /// Redacts a monetary amount when balances are hidden (adapts to any font/size).
-    func hideBalance(_ hidden: Bool) -> some View {
-        redacted(reason: hidden ? .placeholder : [])
-    }
+    /// A **fixed-length** mask that reveals neither the value nor its magnitude — every hidden
+    /// amount renders identically, so you can't infer size from the width.
+    func masked(_ amount: String) -> String { isHidden ? "••••••" : amount }
 }

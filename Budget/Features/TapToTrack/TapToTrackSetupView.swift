@@ -10,6 +10,7 @@ struct TapToTrackSetupView: View {
     @Query(filter: #Predicate<SubAccount> { !$0.isArchived }) private var accounts: [SubAccount]
     @State private var addingCard = false
     @State private var testResult: String?
+    @State private var testTxID: UUID?
 
     var body: some View {
         List {
@@ -56,13 +57,18 @@ struct TapToTrackSetupView: View {
             }
 
             Section {
-                Button { runTest() } label: { Label("Run a test capture", systemImage: "checkmark.circle") }
+                Button { runTest() } label: { Label("Log a test transaction", systemImage: "checkmark.circle") }
                     .disabled(accounts.isEmpty)
                 if let testResult { Text(testResult).font(.caption).foregroundStyle(.secondary) }
+                if testTxID != nil {
+                    Button(role: .destructive) { undoTest() } label: {
+                        Label("Undo test transaction", systemImage: "arrow.uturn.backward")
+                    }
+                }
             } header: {
                 Text("Test the connection")
             } footer: {
-                Text("Simulates a 1 000 ₸ tap using your first mapped card — nothing is saved. If it shows a result, the app side works and any problem is in the Shortcuts automation itself.")
+                Text("Adds a real 1 000 ₸ transaction through the exact path a tap uses, so you can see it appear in History and your balances update. Tap Undo to remove it. If this works, the app side is fine and any problem is in the Shortcuts automation itself.")
             }
 
             Section {
@@ -88,15 +94,26 @@ struct TapToTrackSetupView: View {
     }
 
     private func runTest() {
-        let card = mappings.first?.displayCardName
-        if let p = TapLogger.preview(rawAmount: "1000", merchant: "Test Merchant", card: card, currency: nil, in: context) {
-            let route = p.mappingMatched ? "" : " (no card mapping matched — using your first account)"
-            testResult = "✓ Would log \(CurrencyFormatter.string(p.amount, currencyCode: p.currency)) → \(p.accountName) · \(p.categoryID)\(route)"
+        do {
+            let r = try TapLogger.log(rawAmount: "1000", merchant: "Test capture",
+                                      card: mappings.first?.displayCardName, currency: nil, in: context)
+            testTxID = r.transaction.id
+            let acct = accounts.first { $0.id == r.transaction.accountID }
+            testResult = "✓ Logged \(CurrencyFormatter.string(r.transaction.amountOriginal, currencyCode: r.transaction.currencyCode)) to \(acct.map { "\($0.bank?.name ?? "") \($0.name)" } ?? "your account") — it's now in History and your balance updated."
             Haptics.success()
-        } else {
-            testResult = "Add at least one account first (Accounts tab)."
+        } catch {
+            testResult = "Couldn't log a test — add an account first (Accounts tab)."
             Haptics.error()
         }
+    }
+
+    private func undoTest() {
+        guard let id = testTxID else { return }
+        var d = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.id == id }); d.fetchLimit = 1
+        if let tx = try? context.fetch(d).first { try? Ledger.delete(tx, in: context) }
+        testTxID = nil
+        testResult = "Test transaction removed."
+        Haptics.tap()
     }
 
     private func step(_ n: Int, _ markdown: String) -> some View {

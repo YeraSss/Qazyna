@@ -83,7 +83,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Privacy")
                 } footer: {
-                    Text("Balances show as ▚▚▚ until you tap the eye (or the net-worth figure). They re-hide when you leave the app.")
+                    Text("Balances show as •••••• until you tap the eye (or the net-worth figure). Every hidden amount looks identical, and they re-hide when you leave the app.")
                 }
 
                 Section {

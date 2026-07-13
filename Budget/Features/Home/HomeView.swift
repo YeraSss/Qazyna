@@ -63,10 +63,9 @@ struct HomeView: View {
         return VStack(spacing: 14) {
             VStack(spacing: 4) {
                 Text("Spent this month").font(.subheadline).foregroundStyle(.secondary)
-                Text(CurrencyFormatter.kzt(expense))
+                Text(privacy.masked(CurrencyFormatter.kzt(expense)))
                     .font(.system(size: 36, weight: .bold, design: .rounded))
                     .contentTransition(.numericText()).animation(.snappy, value: expense)
-                    .hideBalance(privacy.isHidden)
             }
             HStack {
                 summaryPill(title: "Income", value: income, color: .green, icon: "arrow.down.left")
@@ -83,8 +82,7 @@ struct HomeView: View {
             Image(systemName: icon).foregroundStyle(color)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.caption2).foregroundStyle(.secondary)
-                Text(CurrencyFormatter.kzt(value)).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                    .hideBalance(privacy.isHidden)
+                Text(privacy.masked(CurrencyFormatter.kzt(value))).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
             }
             Spacer()
         }
@@ -98,8 +96,7 @@ struct HomeView: View {
             Image(systemName: "building.columns.fill").foregroundStyle(.tint)
             Text("Net worth")
             Spacer()
-            Text(CurrencyFormatter.kzt(total)).fontWeight(.semibold)
-                .hideBalance(privacy.isHidden)
+            Text(privacy.masked(CurrencyFormatter.kzt(total))).fontWeight(.semibold)
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
