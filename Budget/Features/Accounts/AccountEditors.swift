@@ -11,6 +11,7 @@ struct BankEditorView: View {
     let bank: Bank?
     @State private var name = ""
     @State private var color: Color = .blue
+    @State private var domain = ""   // website — used to fetch the bank's logo
 
     var body: some View {
         NavigationStack {
@@ -23,6 +24,7 @@ struct BankEditorView: View {
                                     Button {
                                         name = preset.name
                                         color = Color(hex: preset.color)
+                                        domain = preset.domain   // enables the real logo
                                         Haptics.selection()
                                     } label: {
                                         VStack(spacing: 6) {
@@ -41,9 +43,16 @@ struct BankEditorView: View {
                         }
                     }
                 }
-                Section("Bank") {
+                Section {
                     TextField("Name", text: $name)
                     ColorPicker("Brand color", selection: $color, supportsOpacity: false)
+                    HStack {
+                        Label("Website", systemImage: "globe")
+                        TextField("e.g. kaspi.kz", text: $domain)
+                            .multilineTextAlignment(.trailing)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
                     HStack {
                         Text("Preview")
                         Spacer()
@@ -53,6 +62,10 @@ struct BankEditorView: View {
                             .overlay(Text(monogram).font(.headline.bold())
                                 .foregroundStyle(color.readableForeground))
                     }
+                } header: {
+                    Text("Bank")
+                } footer: {
+                    Text("Add the bank's website so Qazyna can show its real logo. Without it, a brand-colored monogram is used.")
                 }
             }
             .navigationTitle(bank == nil ? "Add Bank" : "Edit Bank")
@@ -67,6 +80,7 @@ struct BankEditorView: View {
                 if let bank {
                     name = bank.name
                     color = Color(hex: bank.brandColorHex)
+                    domain = bank.domain
                 }
             }
         }
@@ -80,13 +94,23 @@ struct BankEditorView: View {
         return text.isEmpty ? "?" : text
     }
 
+    /// Normalize a typed website into a bare domain (strip scheme/www/path), lowercased.
+    private func normalizedDomain(_ raw: String) -> String {
+        var d = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        for prefix in ["https://", "http://", "www."] where d.hasPrefix(prefix) { d.removeFirst(prefix.count) }
+        if let slash = d.firstIndex(of: "/") { d = String(d[..<slash]) }
+        return d
+    }
+
     private func save() {
         let hex = color.hexString()
+        let cleanDomain = normalizedDomain(domain)
         if let bank {
             bank.name = name
             bank.brandColorHex = hex
+            bank.domain = cleanDomain
         } else {
-            let new = Bank(id: UUID().uuidString, name: name, domain: "",
+            let new = Bank(id: UUID().uuidString, name: name, domain: cleanDomain,
                            brandColorHex: hex, sortOrder: (banks.map(\.sortOrder).max() ?? 0) + 1)
             context.insert(new)
         }

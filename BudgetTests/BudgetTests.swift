@@ -298,4 +298,22 @@ final class BudgetTests: XCTestCase {
         XCTAssertEqual(map[t2.id], 35_000, "25 000 + 10 000 income")
         XCTAssertEqual(map[t2.id], card.cachedBalance, "final остаток equals the account's current balance")
     }
+
+    /// Banks created without a domain (via preset or manual) get one backfilled by name so
+    /// their real logo can load — the fix for "only letters instead of logos".
+    @MainActor
+    func testBackfillBankDomains() throws {
+        let ctx = ModelContext(ModelContainerFactory.makeContainer(inMemory: true))
+        let kaspi = Bank(id: UUID().uuidString, name: "Kaspi", domain: "", brandColorHex: "#F14635")
+        let freedom = Bank(id: UUID().uuidString, name: "freedom", domain: "", brandColorHex: "#51AF3D")
+        let custom = Bank(id: UUID().uuidString, name: "My Wallet", domain: "", brandColorHex: "#333333")
+        ctx.insert(kaspi); ctx.insert(freedom); ctx.insert(custom)
+        try ctx.save()
+
+        SeedData.backfillBankDomains(ctx)
+
+        XCTAssertEqual(kaspi.domain, "kaspi.kz")
+        XCTAssertEqual(freedom.domain, "bankffin.kz", "case-insensitive name match")
+        XCTAssertEqual(custom.domain, "", "unknown bank stays empty → monogram")
+    }
 }

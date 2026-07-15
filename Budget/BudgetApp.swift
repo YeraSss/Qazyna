@@ -18,6 +18,7 @@ struct BudgetApp: App {
         container = ModelContainerFactory.makeContainer()
         // Seed only the default category taxonomy (idempotent). No sample accounts/transactions.
         SeedData.seedIfNeeded(container.mainContext)
+        SeedData.backfillBankDomains(container.mainContext)
         #if DEBUG
         DemoSeed.seedIfRequested(container.mainContext)
         #endif

@@ -49,6 +49,20 @@ enum SeedData {
         CategorySeed(id: "income_other",  name: "Other Income",    emoji: "➕", color: "#66BB6A", kind: .income)
     ]
 
+    /// Backfill logo domains for banks created before domains were captured (or added via a
+    /// preset that didn't store one): match an empty-domain bank to a preset by name. Idempotent.
+    static func backfillBankDomains(_ context: ModelContext) {
+        guard let banks = try? context.fetch(FetchDescriptor<Bank>()) else { return }
+        var changed = false
+        for bank in banks where bank.domain.trimmingCharacters(in: .whitespaces).isEmpty {
+            if let preset = bankPresets.first(where: { $0.name.caseInsensitiveCompare(bank.name) == .orderedSame }) {
+                bank.domain = preset.domain
+                changed = true
+            }
+        }
+        if changed { try? context.save() }
+    }
+
     /// Seed default categories if none exist. Idempotent; safe on every launch.
     static func seedIfNeeded(_ context: ModelContext) {
         let count = (try? context.fetchCount(FetchDescriptor<Category>())) ?? 0
