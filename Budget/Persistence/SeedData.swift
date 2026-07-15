@@ -14,14 +14,23 @@ enum SeedData {
         let id, name, domain, color: String
     }
 
+    // Popular Kazakhstani banks, ordered roughly by prevalence. `domain` drives the real logo
+    // (fetched at runtime); `color` is only the monogram-fallback tint. Users can add others.
     static let bankPresets: [BankPreset] = [
-        BankPreset(id: "kaspi.kz",          name: "Kaspi",       domain: "kaspi.kz",          color: "#F14635"),
-        BankPreset(id: "bankffin.kz",       name: "Freedom",     domain: "bankffin.kz",       color: "#51AF3D"),
-        BankPreset(id: "home.kz",           name: "Home Credit", domain: "home.kz",           color: "#E51937"),
-        BankPreset(id: "alataucitybank.kz", name: "Alatau City", domain: "alataucitybank.kz", color: "#F2B705"),
-        BankPreset(id: "forte.kz",          name: "ForteBank",   domain: "forte.kz",          color: "#00A9A5"),
-        BankPreset(id: "halyk.kz",          name: "Halyk",       domain: "halykbank.kz",      color: "#00A94F"),
-        BankPreset(id: "jusan.kz",          name: "Jusan",       domain: "jusan.kz",          color: "#111111")
+        BankPreset(id: "kaspi.kz",          name: "Kaspi",             domain: "kaspi.kz",          color: "#F14635"),
+        BankPreset(id: "halykbank.kz",      name: "Halyk Bank",        domain: "halykbank.kz",      color: "#00A651"),
+        BankPreset(id: "bankffin.kz",       name: "Freedom Bank",      domain: "bankffin.kz",       color: "#51AF3D"),
+        BankPreset(id: "forte.kz",          name: "ForteBank",         domain: "forte.kz",          color: "#00A9A5"),
+        BankPreset(id: "berekebank.kz",     name: "Bereke Bank",       domain: "berekebank.kz",     color: "#7C3AED"),
+        BankPreset(id: "bcc.kz",            name: "Bank CenterCredit", domain: "bcc.kz",            color: "#009B48"),
+        BankPreset(id: "jusan.kz",          name: "Jusan Bank",        domain: "jusan.kz",          color: "#111111"),
+        BankPreset(id: "eubank.kz",         name: "Eurasian Bank",     domain: "eubank.kz",         color: "#D6001C"),
+        BankPreset(id: "home.kz",           name: "Home Credit Bank",  domain: "home.kz",           color: "#E51937"),
+        BankPreset(id: "otbasybank.kz",     name: "Otbasy Bank",       domain: "otbasybank.kz",     color: "#0072BC"),
+        BankPreset(id: "altynbank.kz",      name: "Altyn Bank",        domain: "altynbank.kz",      color: "#C8A24B"),
+        BankPreset(id: "nurbank.kz",        name: "Nurbank",           domain: "nurbank.kz",        color: "#F58220"),
+        BankPreset(id: "bankrbk.kz",        name: "Bank RBK",          domain: "bankrbk.kz",        color: "#00857C"),
+        BankPreset(id: "alataucitybank.kz", name: "Alatau City Bank",  domain: "alataucitybank.kz", color: "#F2B705")
     ]
 
     // MARK: Default categories (the taxonomy; expected reference data)
@@ -55,7 +64,13 @@ enum SeedData {
         guard let banks = try? context.fetch(FetchDescriptor<Bank>()) else { return }
         var changed = false
         for bank in banks where bank.domain.trimmingCharacters(in: .whitespaces).isEmpty {
-            if let preset = bankPresets.first(where: { $0.name.caseInsensitiveCompare(bank.name) == .orderedSame }) {
+            let bn = bank.name.lowercased().trimmingCharacters(in: .whitespaces)
+            guard bn.count >= 3 else { continue }
+            // Prefix match handles renamed presets, e.g. "Freedom" ↔ "Freedom Bank".
+            if let preset = bankPresets.first(where: {
+                let pn = $0.name.lowercased()
+                return pn == bn || pn.hasPrefix(bn) || bn.hasPrefix(pn)
+            }) {
                 bank.domain = preset.domain
                 changed = true
             }

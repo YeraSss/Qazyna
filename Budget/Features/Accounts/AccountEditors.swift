@@ -12,68 +12,31 @@ struct BankEditorView: View {
     @State private var name = ""
     @State private var color: Color = .blue
     @State private var domain = ""   // website — used to fetch the bank's logo
+    @State private var addingCustom = false
+
+    /// Show the name/color form when editing an existing bank, or after tapping "Add other";
+    /// otherwise show the logo picker of popular banks.
+    private var isCustomForm: Bool { bank != nil || addingCustom }
 
     var body: some View {
         NavigationStack {
-            Form {
-                if bank == nil {
-                    Section("Quick add") {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 14) {
-                                ForEach(SeedData.bankPresets) { preset in
-                                    Button {
-                                        name = preset.name
-                                        color = Color(hex: preset.color)
-                                        domain = preset.domain   // enables the real logo
-                                        Haptics.selection()
-                                    } label: {
-                                        VStack(spacing: 6) {
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .fill(Color(hex: preset.color).gradient)
-                                                .frame(width: 48, height: 48)
-                                                .overlay(Text(initials(preset.name)).font(.headline.bold())
-                                                    .foregroundStyle(Color(hex: preset.color).readableForeground))
-                                            Text(preset.name).font(.caption2).foregroundStyle(.primary)
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
-                Section {
-                    TextField("Name", text: $name)
-                    ColorPicker("Brand color", selection: $color, supportsOpacity: false)
-                    HStack {
-                        Label("Website", systemImage: "globe")
-                        TextField("e.g. kaspi.kz", text: $domain)
-                            .multilineTextAlignment(.trailing)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                    }
-                    HStack {
-                        Text("Preview")
-                        Spacer()
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(color.gradient)
-                            .frame(width: 44, height: 44)
-                            .overlay(Text(monogram).font(.headline.bold())
-                                .foregroundStyle(color.readableForeground))
-                    }
-                } header: {
-                    Text("Bank")
-                } footer: {
-                    Text("Add the bank's website so Qazyna can show its real logo. Without it, a brand-colored monogram is used.")
-                }
+            Group {
+                if isCustomForm { customForm } else { bankPicker }
             }
-            .navigationTitle(bank == nil ? "Add Bank" : "Edit Bank")
+            .navigationTitle(bank != nil ? "Edit Bank" : (addingCustom ? "Custom Bank" : "Add Bank"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }.disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                ToolbarItem(placement: .cancellationAction) {
+                    if addingCustom && bank == nil {
+                        Button("Back") { withAnimation { addingCustom = false } }
+                    } else {
+                        Button("Cancel") { dismiss() }
+                    }
+                }
+                if isCustomForm {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") { save() }.disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
                 }
             }
             .onAppear {
@@ -84,6 +47,89 @@ struct BankEditorView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Bank picker (choose a KZ bank by its logo)
+
+    /// Presets not already added (matched by id or domain).
+    private var availablePresets: [SeedData.BankPreset] {
+        let ids = Set(banks.map(\.id))
+        let domains = Set(banks.map { $0.domain.lowercased() }.filter { !$0.isEmpty })
+        return SeedData.bankPresets.filter { !ids.contains($0.id) && !domains.contains($0.domain) }
+    }
+
+    private var bankPicker: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 14)], spacing: 14) {
+                ForEach(availablePresets) { preset in
+                    Button { addPreset(preset) } label: { presetCard(preset) }
+                        .buttonStyle(.plain)
+                }
+                Button { withAnimation { addingCustom = true } } label: { addOtherCard }
+                    .buttonStyle(.plain)
+            }
+            .padding()
+        }
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private func presetCard(_ preset: SeedData.BankPreset) -> some View {
+        VStack(spacing: 8) {
+            LogoTile(domain: preset.domain, color: Color(hex: preset.color), initials: initials(preset.name), size: 56)
+            Text(preset.name).font(.caption).foregroundStyle(.primary)
+                .lineLimit(2).multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity).frame(height: 120)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
+    }
+
+    private var addOtherCard: some View {
+        VStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [5]))
+                .frame(width: 56, height: 56)
+                .overlay(Image(systemName: "plus").font(.title2.bold()))
+                .foregroundStyle(.tint)
+            Text("Add other").font(.caption.weight(.medium)).foregroundStyle(.tint)
+        }
+        .frame(maxWidth: .infinity).frame(height: 120)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
+    }
+
+    // MARK: - Custom bank / edit form
+
+    private var customForm: some View {
+        Form {
+            Section {
+                TextField("Name", text: $name)
+                ColorPicker("Brand color", selection: $color, supportsOpacity: false)
+                HStack {
+                    Label("Website", systemImage: "globe")
+                    TextField("optional, e.g. kaspi.kz", text: $domain)
+                        .multilineTextAlignment(.trailing)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+                HStack {
+                    Text("Preview")
+                    Spacer()
+                    LogoTile(domain: normalizedDomain(domain), color: color, initials: monogram, size: 44)
+                }
+            } header: {
+                Text("Bank")
+            } footer: {
+                Text("A colored letter is used by default. Add the bank's website to show its real logo instead.")
+            }
+        }
+    }
+
+    private func addPreset(_ preset: SeedData.BankPreset) {
+        let new = Bank(id: preset.id, name: preset.name, domain: preset.domain,
+                       brandColorHex: preset.color, sortOrder: (banks.map(\.sortOrder).max() ?? 0) + 1)
+        context.insert(new)
+        try? context.save()
+        Haptics.success()
+        dismiss()
     }
 
     private var monogram: String { initials(name) }

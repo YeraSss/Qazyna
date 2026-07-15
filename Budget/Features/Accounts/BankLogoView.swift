@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// A bank's identity tile. Shows the bank's real logo (fetched by domain and cached via
-/// `LogoService`); falls back to a brand-color monogram while loading, offline, or when no
-/// logo is available. No logo artwork is bundled in the app.
-struct BankLogoView: View {
-    let bank: Bank
+/// Renders a logo for a domain (fetched + cached via `LogoService`), falling back to a
+/// brand-color monogram while loading, offline, or when no logo is available. Reused by both
+/// saved banks and the Add-Bank picker (which has presets, not `Bank` objects yet).
+struct LogoTile: View {
+    let domain: String
+    let color: Color
+    let initials: String
     var size: CGFloat = 44
 
     @State private var logo: UIImage?
@@ -27,32 +29,38 @@ struct BankLogoView: View {
                             .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
                     )
             } else {
-                monogram
+                RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                    .fill(color.gradient)
+                    .frame(width: size, height: size)
+                    .overlay(
+                        Text(initials)
+                            .font(.system(size: size * 0.38, weight: .bold, design: .rounded))
+                            .foregroundStyle(color.readableForeground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                            .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+                    )
             }
         }
-        .task(id: bank.domain) {
-            if let cached = LogoService.shared.cachedLogo(for: bank.domain) {
+        .task(id: domain) {
+            guard !domain.isEmpty else { return }
+            if let cached = LogoService.shared.cachedLogo(for: domain) {
                 logo = cached
             } else {
-                logo = await LogoService.shared.logo(for: bank.domain)
+                logo = await LogoService.shared.logo(for: domain)
             }
         }
     }
+}
 
-    /// Brand-color monogram fallback.
-    private var monogram: some View {
-        let color = Color(hex: bank.brandColorHex)
-        return RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(color.gradient)
-            .frame(width: size, height: size)
-            .overlay(
-                Text(bank.monogram)
-                    .font(.system(size: size * 0.38, weight: .bold, design: .rounded))
-                    .foregroundStyle(color.readableForeground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                    .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
-            )
+/// A saved bank's identity tile.
+struct BankLogoView: View {
+    let bank: Bank
+    var size: CGFloat = 44
+
+    var body: some View {
+        LogoTile(domain: bank.domain, color: Color(hex: bank.brandColorHex),
+                 initials: bank.monogram, size: size)
     }
 }
