@@ -10,6 +10,7 @@ struct HomeView: View {
     @Query private var monthlyRollups: [MonthlyRollup]
     @Query(filter: #Predicate<SubAccount> { !$0.isArchived }) private var accounts: [SubAccount]
     @Query private var categories: [Category]
+    @Query private var budgetRules: [CategoryBudget]
     @Query(sort: [SortDescriptor(\TransactionRecord.date, order: .reverse)]) private var allTx: [TransactionRecord]
 
     @State private var showQuickAdd = false
@@ -22,6 +23,10 @@ struct HomeView: View {
     private var categoryMap: [String: Category] { Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
     private var accountMap: [UUID: SubAccount] { Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
     private var recent: [TransactionRecord] { Array(allTx.prefix(8)) }
+    private var remainingMap: [UUID: Decimal] {
+        BudgetRunning.remainingByTx(allTx,
+            budgets: Dictionary(budgetRules.map { ($0.categoryID, $0.limitKZT) }, uniquingKeysWith: { a, _ in a }))
+    }
 
     var body: some View {
         NavigationStack {
@@ -119,7 +124,7 @@ struct HomeView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(recent) { tx in
-                        TransactionRow(tx: tx, category: categoryMap[tx.categoryID], account: accountMap[tx.accountID])
+                        TransactionRow(tx: tx, category: categoryMap[tx.categoryID], account: accountMap[tx.accountID], budgetRemaining: remainingMap[tx.id])
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .contentShape(Rectangle())
                             .onTapGesture { editing = tx }

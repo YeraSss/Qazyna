@@ -20,6 +20,7 @@ struct HistoryView: View {
     private var transactions: [TransactionRecord]
     @Query private var categories: [Category]
     @Query private var accounts: [SubAccount]
+    @Query private var budgetRules: [CategoryBudget]
 
     @State private var searchText = ""
     @State private var filter = TxnFilter()
@@ -31,6 +32,11 @@ struct HistoryView: View {
 
     private var categoryMap: [String: Category] { Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
     private var accountMap: [UUID: SubAccount] { Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
+    /// Running remaining-budget per transaction (computed over ALL transactions for accuracy).
+    private var remainingMap: [UUID: Decimal] {
+        BudgetRunning.remainingByTx(transactions,
+            budgets: Dictionary(budgetRules.map { ($0.categoryID, $0.limitKZT) }, uniquingKeysWith: { a, _ in a }))
+    }
 
     private var filtered: [TransactionRecord] {
         transactions.filter { tx in
@@ -65,7 +71,7 @@ struct HistoryView: View {
                         ForEach(grouped, id: \.day) { group in
                             Section {
                                 ForEach(group.items) { tx in
-                                    TransactionRow(tx: tx, category: categoryMap[tx.categoryID], account: accountMap[tx.accountID])
+                                    TransactionRow(tx: tx, category: categoryMap[tx.categoryID], account: accountMap[tx.accountID], budgetRemaining: remainingMap[tx.id])
                                         .contentShape(Rectangle())
                                         .onTapGesture { editing = tx }
                                         .swipeActions(edge: .trailing) {
@@ -122,18 +128,17 @@ struct HistoryView: View {
     }
 }
 
-/// A single transaction row.
+/// A single transaction row, badged with its account's bank color/logo and — for budgeted
+/// expenses — the remaining budget in that category after this transaction.
 struct TransactionRow: View {
     let tx: TransactionRecord
     let category: Category?
     let account: SubAccount?
+    var budgetRemaining: Decimal? = nil
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Color(hex: category?.colorHex ?? "#90A4AE").opacity(0.22)).frame(width: 40, height: 40)
-                Text(category?.emoji ?? "📦")
-            }
+            avatar
             VStack(alignment: .leading, spacing: 2) {
                 Text(tx.merchant ?? category?.name ?? "Transaction")
                     .font(.subheadline.weight(.medium)).lineLimit(1)
@@ -153,9 +158,41 @@ struct TransactionRow: View {
                 if tx.currencyCode != Money.baseCurrency {
                     Text(CurrencyFormatter.kzt(tx.amountKZT)).font(.caption2).foregroundStyle(.secondary)
                 }
+                if let remaining = budgetRemaining {
+                    Text(remaining >= 0
+                         ? "\(CurrencyFormatter.kzt(remaining)) left"
+                         : "over by \(CurrencyFormatter.kzt(-remaining))")
+                        .font(.caption2)
+                        .foregroundStyle(remaining >= 0 ? Color.secondary : Color.red)
+                }
             }
         }
         .padding(.vertical, 2)
+    }
+
+    /// Leading avatar: the account's bank logo/color, with the category emoji as a small badge.
+    private var avatar: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Group {
+                if let bank = account?.bank {
+                    BankLogoView(bank: bank, size: 40)
+                } else {
+                    ZStack {
+                        Circle().fill(Color(hex: category?.colorHex ?? "#90A4AE").opacity(0.22))
+                        Text(category?.emoji ?? "📦")
+                    }
+                    .frame(width: 40, height: 40)
+                }
+            }
+            if account?.bank != nil {
+                Text(category?.emoji ?? "")
+                    .font(.system(size: 12))
+                    .padding(3)
+                    .background(Circle().fill(Color(.systemBackground)))
+                    .offset(x: 5, y: 5)
+            }
+        }
+        .frame(width: 40, height: 40)
     }
 
     private var signedAmount: String {

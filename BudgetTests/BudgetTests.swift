@@ -275,4 +275,28 @@ final class BudgetTests: XCTestCase {
         XCTAssertEqual(try fresh.fetch(FetchDescriptor<CardMapping>()).count, 1, "card mapping preserved")
         XCTAssertTrue(Ledger.integrityCheck(in: fresh))
     }
+
+    /// Running remaining-budget shown on transaction rows: chronological, per category/month.
+    @MainActor
+    func testRunningBudgetRemaining() throws {
+        let ctx = ModelContext(ModelContainerFactory.makeContainer(inMemory: true))
+        SeedData.seedIfNeeded(ctx)
+        let bank = Bank(id: "b", name: "B", domain: "", brandColorHex: "#111111"); ctx.insert(bank)
+        let card = SubAccount(name: "C", type: .card, currencyCode: "KZT", openingBalance: 100_000)
+        card.bank = bank; ctx.insert(card)
+        try ctx.save()
+        let cal = Calendar.current
+        let t1 = try Ledger.insert(TransactionDraft(kind: .expense, amountOriginal: 10_000, currencyCode: "KZT",
+            fxRateToKZT: 1, date: cal.date(byAdding: .day, value: -2, to: .now)!, accountID: card.id, categoryID: "food"), in: ctx)
+        let t2 = try Ledger.insert(TransactionDraft(kind: .expense, amountOriginal: 15_000, currencyCode: "KZT",
+            fxRateToKZT: 1, date: cal.date(byAdding: .day, value: -1, to: .now)!, accountID: card.id, categoryID: "food"), in: ctx)
+        let income = try Ledger.insert(TransactionDraft(kind: .income, amountOriginal: 5_000, currencyCode: "KZT",
+            fxRateToKZT: 1, accountID: card.id, categoryID: "salary"), in: ctx)
+
+        let txs = try ctx.fetch(FetchDescriptor<TransactionRecord>())
+        let map = BudgetRunning.remainingByTx(txs, budgets: ["food": 40_000])
+        XCTAssertEqual(map[t1.id], 30_000, "after 1st food expense: 40k − 10k")
+        XCTAssertEqual(map[t2.id], 15_000, "after 2nd food expense: 40k − 25k (running)")
+        XCTAssertNil(map[income.id], "income / non-budgeted category has no remaining")
+    }
 }

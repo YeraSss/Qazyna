@@ -25,6 +25,10 @@ enum DemoSeed {
             fxRateToKZT: 1, accountID: card.id, categoryID: "groceries", merchant: "Small"), in: context)
         try? Ledger.insert(TransactionDraft(kind: .expense, amountOriginal: 3_200, currencyCode: "KZT",
             fxRateToKZT: 1, accountID: card.id, categoryID: "food", merchant: "Bahandi"), in: context)
+
+        context.insert(CategoryBudget(categoryID: "food", limitKZT: 40_000))
+        context.insert(CategoryBudget(categoryID: "groceries", limitKZT: 120_000))
+        try? context.save()
     }
 }
 #endif
