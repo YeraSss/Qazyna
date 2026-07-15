@@ -20,7 +20,8 @@ struct HistoryView: View {
     private var transactions: [TransactionRecord]
     @Query private var categories: [Category]
     @Query private var accounts: [SubAccount]
-    @Query private var budgetRules: [CategoryBudget]
+    @Query private var transfers: [TransferRecord]
+    @Query private var adjustments: [BalanceAdjustment]
 
     @State private var searchText = ""
     @State private var filter = TxnFilter()
@@ -32,10 +33,9 @@ struct HistoryView: View {
 
     private var categoryMap: [String: Category] { Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
     private var accountMap: [UUID: SubAccount] { Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
-    /// Running remaining-budget per transaction (computed over ALL transactions for accuracy).
-    private var remainingMap: [UUID: Decimal] {
-        BudgetRunning.remainingByTx(transactions,
-            budgets: Dictionary(budgetRules.map { ($0.categoryID, $0.limitKZT) }, uniquingKeysWith: { a, _ in a }))
+    /// Account balance ("остаток") after each transaction, computed over ALL ledger events.
+    private var balanceMap: [UUID: Decimal] {
+        RunningBalance.byTx(accounts: accounts, transactions: transactions, transfers: transfers, adjustments: adjustments)
     }
 
     private var filtered: [TransactionRecord] {
@@ -71,7 +71,7 @@ struct HistoryView: View {
                         ForEach(grouped, id: \.day) { group in
                             Section {
                                 ForEach(group.items) { tx in
-                                    TransactionRow(tx: tx, category: categoryMap[tx.categoryID], account: accountMap[tx.accountID], budgetRemaining: remainingMap[tx.id])
+                                    TransactionRow(tx: tx, category: categoryMap[tx.categoryID], account: accountMap[tx.accountID], runningBalance: balanceMap[tx.id])
                                         .contentShape(Rectangle())
                                         .onTapGesture { editing = tx }
                                         .swipeActions(edge: .trailing) {
@@ -128,13 +128,16 @@ struct HistoryView: View {
     }
 }
 
-/// A single transaction row, badged with its account's bank color/logo and — for budgeted
-/// expenses — the remaining budget in that category after this transaction.
+/// A single transaction row, badged with its account's bank color/logo and showing the
+/// account balance ("остаток") right after this transaction, in a bank-colored chip.
 struct TransactionRow: View {
+    @EnvironmentObject private var privacy: PrivacyManager
     let tx: TransactionRecord
     let category: Category?
     let account: SubAccount?
-    var budgetRemaining: Decimal? = nil
+    var runningBalance: Decimal? = nil
+
+    private var bankColor: Color { Color(hex: account?.bank?.brandColorHex ?? "#8E8E93") }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -158,12 +161,12 @@ struct TransactionRow: View {
                 if tx.currencyCode != Money.baseCurrency {
                     Text(CurrencyFormatter.kzt(tx.amountKZT)).font(.caption2).foregroundStyle(.secondary)
                 }
-                if let remaining = budgetRemaining {
-                    Text(remaining >= 0
-                         ? "\(CurrencyFormatter.kzt(remaining)) left"
-                         : "over by \(CurrencyFormatter.kzt(-remaining))")
-                        .font(.caption2)
-                        .foregroundStyle(remaining >= 0 ? Color.secondary : Color.red)
+                if let balance = runningBalance {
+                    Text(privacy.masked(CurrencyFormatter.string(balance, currencyCode: account?.currencyCode ?? Money.baseCurrency)))
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(Capsule().fill(bankColor.opacity(0.15)))
+                        .foregroundStyle(bankColor)
                 }
             }
         }
