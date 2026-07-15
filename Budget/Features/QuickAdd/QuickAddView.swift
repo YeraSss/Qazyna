@@ -146,10 +146,14 @@ struct QuickAddView: View {
     private var detailsCard: some View {
         VStack(spacing: 0) {
             Picker(selection: $accountID) {
+                Text("Choose bank & account").tag(UUID?.none)
                 ForEach(accounts) { acct in
                     Text("\(acct.bank?.name ?? "") · \(acct.name)").tag(Optional(acct.id))
                 }
-            } label: { Label("Account", systemImage: "building.columns") }
+            } label: {
+                Label("Bank & account", systemImage: "building.columns")
+                    .foregroundStyle(accountID == nil ? Color.red : Color.primary)
+            }
                 .padding(.horizontal, 14).padding(.vertical, 6)
             Divider()
             DatePicker(selection: $date, displayedComponents: [.date, .hourAndMinute]) {
@@ -183,9 +187,9 @@ struct QuickAddView: View {
             note = tx.note ?? ""
             merchant = tx.merchant ?? ""
         } else {
-            accountID = accounts.first?.id
+            // Do NOT default the account — the user must pick which bank this came from.
             categoryID = visibleCategories.first?.id
-            if let prefill { apply(prefill) }
+            if let prefill { apply(prefill) }   // may set accountID if a bank was detected
         }
     }
 

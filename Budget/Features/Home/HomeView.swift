@@ -18,7 +18,10 @@ struct HomeView: View {
     @State private var showQuickAdd = false
     @State private var showScan = false
     @State private var showImport = false
+    @State private var showReview = false
     @State private var editing: TransactionRecord?
+
+    private var reviewCount: Int { allTx.lazy.filter { $0.needsReview }.count }
 
     private let monthKey = DateKeys.currentMonthKey()
     private var currentMonth: MonthlyRollup? { monthlyRollups.first { $0.monthKey == monthKey } }
@@ -33,6 +36,7 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if reviewCount > 0 { reviewBanner }
                     monthCard
                     netWorthRow
                     quickAddButton
@@ -59,8 +63,27 @@ struct HomeView: View {
             .sheet(isPresented: $showQuickAdd) { QuickAddView() }
             .sheet(isPresented: $showScan) { ReceiptScanView() }
             .sheet(isPresented: $showImport) { ImportView() }
+            .sheet(isPresented: $showReview) { ReviewView() }
             .sheet(item: $editing) { QuickAddView(editing: $0) }
         }
+    }
+
+    /// Prompts the user to categorize transactions captured by Tap to Track.
+    private var reviewBanner: some View {
+        Button { Haptics.tap(); showReview = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkle.magnifyingglass").font(.title3).foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(reviewCount) tap\(reviewCount == 1 ? "" : "s") to categorize").font(.subheadline.weight(.semibold))
+                    Text("Auto-captured from Apple Pay — pick a category").font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.orange.opacity(0.12)))
+        }
+        .buttonStyle(.plain)
     }
 
     private var monthCard: some View {

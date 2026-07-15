@@ -87,10 +87,12 @@ the **widget shows sample data**. To give the widget *live* data on a real devic
 
 ### Bank logos (optional)
 
-By default banks show a **brand-color monogram** tile (legally clean, no bundled logo art). To fetch
-real logos at runtime, add a [Brandfetch](https://brandfetch.com/developers) client ID; the app
-always falls back to the monogram when offline or unconfigured. (Logo fetching is a documented
-enhancement point in `LogoService`; the monogram is the shipping default.)
+Banks show their **real logo**, fetched by domain at runtime and cached on-device (`LogoService`) —
+**no logo artwork is bundled in the app**; logos are the property of their respective banks and are
+loaded for identification only. With no configuration it uses a favicon service (recognizable,
+low-res); add a [Brandfetch](https://brandfetch.com/developers) client ID under the
+`BRANDFETCH_CLIENT_ID` Info.plist key for full-quality logos. When offline or unavailable it falls
+back to a brand-colored monogram tile.
 
 ---
 

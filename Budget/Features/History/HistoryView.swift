@@ -137,7 +137,18 @@ struct TransactionRow: View {
     let account: SubAccount?
     var runningBalance: Decimal? = nil
 
-    private var bankColor: Color { Color(hex: account?.bank?.brandColorHex ?? "#8E8E93") }
+    /// The spent/earned amount is colored by type: red for expense, green for income.
+    private var amountColor: Color { tx.kind == .expense ? .red : .green }
+
+    /// Subheading: sub-account (bank shown by the logo) · note. The category isn't repeated
+    /// here — it's conveyed by the icon on the avatar (and by the title when there's no merchant).
+    private var subheading: String {
+        var parts: [String] = []
+        if let account { parts.append(account.name) }
+        if let note = tx.note, !note.isEmpty { parts.append(note) }
+        if parts.isEmpty { parts.append(category?.name ?? tx.categoryID) }
+        return parts.joined(separator: " · ")
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -146,8 +157,7 @@ struct TransactionRow: View {
                 Text(tx.merchant ?? category?.name ?? "Transaction")
                     .font(.subheadline.weight(.medium)).lineLimit(1)
                 HStack(spacing: 6) {
-                    Text(category?.name ?? tx.categoryID).font(.caption2).foregroundStyle(.secondary)
-                    if let account { Text("· \(account.name)").font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+                    Text(subheading).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                     if tx.needsReview {
                         Text("Review").font(.caption2.bold()).foregroundStyle(.orange)
                     }
@@ -157,7 +167,7 @@ struct TransactionRow: View {
             VStack(alignment: .trailing, spacing: 1) {
                 Text(signedAmount)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(tx.kind == .expense ? .primary : Color.green)
+                    .foregroundStyle(amountColor)
                 if tx.currencyCode != Money.baseCurrency {
                     Text(CurrencyFormatter.kzt(tx.amountKZT)).font(.caption2).foregroundStyle(.secondary)
                 }
@@ -165,8 +175,8 @@ struct TransactionRow: View {
                     Text(privacy.masked(CurrencyFormatter.string(balance, currencyCode: account?.currencyCode ?? Money.baseCurrency)))
                         .font(.caption2.weight(.semibold))
                         .padding(.horizontal, 7).padding(.vertical, 2)
-                        .background(Capsule().fill(bankColor.opacity(0.15)))
-                        .foregroundStyle(bankColor)
+                        .background(Capsule().fill(Color(.tertiarySystemFill)))
+                        .foregroundStyle(.primary)
                 }
             }
         }
