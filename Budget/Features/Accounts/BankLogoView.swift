@@ -20,13 +20,15 @@ struct LogoTile: View {
                     .scaledToFit()
                     .padding(size * 0.16)
                     .frame(width: size, height: size)
-                    .background(
-                        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                            .fill(Color(.systemBackground))
-                    )
+                    // Always a white chip: most logos are drawn for a white ground, and many
+                    // favicons carry a baked-in white square. On a dark (systemBackground) tile
+                    // that square showed as visible white corners in dark mode — a fixed white
+                    // ground blends it away and reads as an intentional icon in both appearances.
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                            .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                            .strokeBorder(.black.opacity(0.10), lineWidth: 0.5)
                     )
             } else {
                 RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
@@ -45,7 +47,10 @@ struct LogoTile: View {
         }
         .task(id: domain) {
             guard !domain.isEmpty else { return }
-            if let cached = LogoService.shared.cachedLogo(for: domain) {
+            // Bundled logo first (crisp, offline, correct on first launch), then network, then monogram.
+            if let bundled = LogoService.shared.bundledLogo(for: domain) {
+                logo = bundled
+            } else if let cached = LogoService.shared.cachedLogo(for: domain) {
                 logo = cached
             } else {
                 logo = await LogoService.shared.logo(for: domain)
